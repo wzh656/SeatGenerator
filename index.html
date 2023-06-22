@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	 
+	<title>波函数坍缩算法排座位表</title>
+	<!--<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport" />-->
+	
+	<script src="js/vue3.js"></script>
+	
+	<style>
+		#canvas{
+			border: 1px solid black;
+		}
+	</style>
+	
+</head>
+<body>
+<app>
+	<section>
+		<canvas id="canvas" ref="canvas"></canvas><br/>
+		<div>
+			<p>未分配：</p>
+			<p>男：<span v-text="names.male"></span></p>
+			<p>女：<span v-text="names.female"></span></p>
+		</div>
+	</section>
+</app>
+
+<script>
+const app = Vue.createApp({
+	data(){
+		return {
+			names: {
+				male: [
+					"陈翀",
+					"陈子立",
+					"方健",
+					"方哲宸",
+					"古京",
+					"郭健民",
+					"郭子鸣",
+					"黄星泽",
+					"黄子瀚",
+					"赖后宜",
+					"练书文",
+					"廖泓铸",
+					"林润",
+					"刘博元",
+					"刘洲",
+					"罗舒杨",
+					"饶锦浩",
+					"王瑞博",
+					"吴正浩",
+					"谢佳航",
+					"谢禹韬",
+					"谢志奇",
+					"杨锦润",
+					"叶骞",
+					"张清心",
+					"张翔荣",
+					"钟祺源",
+					"周铭杰",
+					"周湛丰",
+					"朱熙",
+					"邹平"
+				],
+				female: [
+					"江美茹",
+					"刘欣2",
+					"刘妍希",
+					"卢果",
+					"彭雨杉",
+					"邱世瑶",
+					"王万鸿",
+					"王誉彤",
+					"肖睿凌",
+					"谢佳韵",
+					"谢永祺",
+					"谢雨彤",
+					"徐亦橙",
+					"许绘琳",
+					"张凤芳",
+					"张凌菲",
+					"朱津莹"
+				]
+			}, //名单
+			groups: [
+				[1, 6],
+				[2, 6],
+				[2, 6],
+				[2, 6],
+				[1, 6]
+			], //分组
+			blockWidth: 100,
+			blockHeight: 50, //方格大小
+			data: [], //数据
+			pos: [],
+			rules: [{
+				type: "deskmateSex",
+				sex: "same" //仅允许同性同桌
+			}, {
+				type: "group",
+				names: ["刘妍希", "谢雨彤"],
+				bool: true,
+				group: [0, 4] //固定组别 在组或组内
+			}, {
+				type: "groupSexParity",
+				group: [0, 4],
+				sex: "male",
+				parity: "odd" //性别奇偶性 都是奇数
+			}, {
+				type: "deskmate",
+				bool: true, //固定是同桌
+				names: ["徐亦橙", "张凌菲"]
+			}, {
+				type: "deskmate",
+				bool: true, //固定是同桌
+				names: ["吴正浩", "练书文"]
+			}, {
+				type: "deskmate",
+				bool: false, //固定非同桌
+				names: ["周湛丰", "黄子瀚"]
+			}]
+		};
+	},
+	
+	methods: {
+		//初始化
+		initSize(){
+			//画布宽高
+			let width = height = 0;
+			width += this.blockWidth;
+			height += 2 * this.blockHeight; //留白
+			for (const group of this.groups){
+				width += this.blockWidth * (group[0] + 1);
+				height = Math.max( height, this.blockHeight*(group[1] + 2) );
+			}
+			this.$refs.canvas.width = width;
+			this.$refs.canvas.height = height;
+			
+			//数据大小
+			let index = 0;
+			for (const group of this.groups){
+				for (let i=0; i<group[0]; i++){
+					this.data[index + i] = [];
+					for (let j=0; j<group[1]; j++)
+						this.data[index + i][j] = {name: null, sex: null};
+				}
+				index += group[0];
+			}
+		},
+		
+		
+		//绘制更新数据
+		draw(){
+			const ctx = this.$refs.canvas.getContext("2d");
+			
+			//清除
+			ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			
+			let index = [0, 0]; //数据指针
+			let x = this.blockWidth;
+			let y = this.blockHeight; //留白
+			for (const group of this.groups){ //组
+				const [width, height] = group;
+				for (let i=0; i<width; i++){ //组内 排
+					for (let j=0; j<height; j++){ //组内列
+						//背景
+						if (index[0] + i == this.pos[0] && index[1] + j == this.pos[1]){
+							ctx.beginPath();
+							ctx.fillStyle = "lightgreen";
+							ctx.fillRect(x + i*this.blockWidth, ctx.canvas.height - (y + j*this.blockHeight) - this.blockHeight, this.blockWidth, this.blockHeight);
+						}else if ( this.rules
+							.filter(rule => rule.type == "deskmate" && rule.bool == true)
+							.some(rule => rule.names.indexOf(this.data[index[0] + i][index[1] + j].name) != -1)
+						){
+							ctx.beginPath();
+							ctx.fillStyle = "pink";
+							ctx.fillRect(x + i*this.blockWidth, ctx.canvas.height - (y + j*this.blockHeight) - this.blockHeight, this.blockWidth, this.blockHeight);
+						}else if ( this.rules
+							.filter(rule => rule.type == "deskmate" && rule.bool == false)
+							.some(rule => rule.names.indexOf(this.data[index[0] + i][index[1] + j].name) != -1)
+						){
+							ctx.beginPath();
+							ctx.fillStyle = "gray";
+							ctx.fillRect(x + i*this.blockWidth, ctx.canvas.height - (y + j*this.blockHeight) - this.blockHeight, this.blockWidth, this.blockHeight);
+						}else if ( this.rules
+							.filter(rule => rule.type == "group")
+							.some(rule => rule.names.indexOf(this.data[index[0] + i][index[1] + j].name) != -1)
+						){
+							ctx.beginPath();
+							ctx.fillStyle = "yellow";
+							ctx.fillRect(x + i*this.blockWidth, ctx.canvas.height - (y + j*this.blockHeight) - this.blockHeight, this.blockWidth, this.blockHeight);
+						}
+						
+						//边框
+						ctx.beginPath();
+						ctx.strokeStyle = "black";
+						ctx.strokeRect(x + i*this.blockWidth, ctx.canvas.height - (y + j*this.blockHeight) - this.blockHeight, this.blockWidth, this.blockHeight);
+						
+						//字体
+						ctx.beginPath();
+						if (this.data[index[0] + i][index[1] + j].sex){
+							switch (this.data[index[0] + i][index[1] + j].sex){
+								case "male":
+									ctx.fillStyle = "blue";
+									break;
+								case "female":
+									ctx.fillStyle = "purple";
+									break;
+							}
+						}else{
+							ctx.fillStyle = "black";
+						}
+						ctx.font = this.blockHeight/2 + "px Ariel";
+						ctx.textAlign = "center";
+						ctx.textBaseline = "middle"; //基线：中中
+						ctx.fillText(this.data[index[0] + i][index[1] + j].name, x + (i+0.5)*this.blockWidth, ctx.canvas.height - (y + (j+0.5)*this.blockHeight), this.blockWidth, this.blockHeight);
+					}
+				}
+				
+				x += this.blockWidth * (width + 1);
+				index[0] += width;
+			}
+		},
+		
+		
+		//计算
+		calc(){
+			const list = []; //可排的位置
+			for (let i=0; i<this.data.length; i++)
+				for (let j=0; j<this.data[i].length; j++)
+					if (this.data[i][j].name == null) //未排
+						list.push([i, j]);
+			
+			const pos = list[ ~~(list.length * Math.random()) ]; //随机选取位置
+			this.pos = pos;
+			
+			const candidates = {}; //候选人
+			for (const name of this.names.male)
+				candidates[name] = {
+					status: null, //是否可选
+					sex: "male"
+				};
+			for (const name of this.names.female)
+				candidates[name] = {
+					status: null, //是否可选
+					sex: "female"
+				};
+			
+			console.log(this.data, pos, candidates)
+			
+			//删除某性候选人
+			const deleteSex = sex => {
+				console.log("deleteSex", sex)
+				for (const name of Object.keys(candidates))
+					if (candidates[name].sex == sex) //删除某性候选人
+						delete candidates[name];
+			};
+			
+			//删除非某性候选人
+			const deleteNotSex = sex => {
+				console.log("deleteNotSex", sex)
+				for (const name of Object.keys(candidates))
+					if (candidates[name].sex != sex) //删除非某性候选人
+						delete candidates[name];
+			};
+			
+			//寻找 本组起始结束位置
+			let start = end = 0;
+			for (const group of this.groups){
+				end = start + group[0] - 1;
+				if (start <= pos[0] && pos[0] <= end) //属于本组
+					break;
+				start += group[0];
+			}
+			
+			 //左桌 右桌
+			let left, right;
+			if ( pos[0]-1 >= start &&
+				pos[0]-1 <= end &&
+				this.data[pos[0]-1] &&
+				this.data[pos[0]-1][pos[1]] &&
+				this.data[pos[0]-1][pos[1]].name
+			) left = this.data[pos[0]-1][pos[1]];
+			
+			if ( pos[0]+1 >= start &&
+				pos[0]+1 <= end &&
+				this.data[pos[0]+1] &&
+				this.data[pos[0]+1][pos[1]] &&
+				this.data[pos[0]+1][pos[1]].name
+			) right = this.data[pos[0]+1][pos[1]];
+			
+			
+			//遍历规则
+			for (const rule of this.rules)
+				switch (rule.type){
+					/*固定组*/
+					case "group": {
+						let inGroup = false; //本组在规则内
+						let emptyNum = 0; //剩余空位
+						let ruleInGroup = []; //已在组内人
+						let to = 0; //start的别名
+						for (const [index, group] of Object.entries(this.groups)){
+							to += group[0];
+							if (rule.group.indexOf(+index) == -1) continue; //非规则内
+							//规则内组
+							if (to-group[0] == start && to-1 == end)
+								inGroup = true; //本组
+							for (let i=0; i<group[0]; i++)
+								for (let j=0; j<group[1]; j++){
+									if (!this.data[to-group[0] + i][j].name)
+										emptyNum++;
+									if (rule.names.indexOf(this.data[to-group[0] + i][j].name) != -1)
+										ruleInGroup.push( this.data[to-group[0] + i][j].name );
+								}
+						}
+						
+						console.log("rule: group", rule.names, inGroup, emptyNum, rule.names.length - ruleInGroup.length)
+						
+						if (inGroup){ //当前位置 组内
+							if (rule.bool){ //需要在组内
+								if (emptyNum == (rule.names.length - ruleInGroup.length)) //空位数等于需安排数 必须安排
+									Object.keys(candidates)
+										.filter(name => rule.names.indexOf(name) == -1) //删除不需安排的人
+										.forEach(name => delete candidates[name])
+							}else{ //不能在组内 删除规则内人
+								rule.names.forEach(name => delete candidates[name]);
+							}
+						}else{ //当前位置 组外
+							if (rule.bool){ //需要在组内 删除规则内人
+								rule.names.forEach(name => delete candidates[name]);
+							}
+						}
+						
+						break;
+					}
+					
+					
+					/* 同桌性别 */
+					case "deskmateSex": {
+						console.log("rule: deskmateSex", rule)
+						
+						//操作
+						let method;
+						switch (rule.sex){
+							case "same": //同性 删除异性
+								method = deleteNotSex;
+								break;
+							case "different": //异性 删除同性
+								method = deleteSex;
+								break;
+						}
+						
+						if (left) //左桌 存在
+							method(left.sex); //删除候选人
+						
+						if (right) //右桌 存在
+							method(right.sex); //删除候选人
+						
+						break;
+					}
+					
+					
+					/* 同桌 */
+					case "deskmate": {
+						console.log("rule: deskmate", rule)
+						
+						if (start == end){ //无同桌
+							if (rule.bool) //需要有同桌 删除候选人
+								rule.names.forEach(name => delete candidates[name]);
+							
+						}else{ //有同桌
+							if (left){ //左桌 存在
+								let index = rule.names.indexOf( left.name );
+								if (index != -1){ //左桌 在规则中
+									if (rule.bool){ //定同桌 只能是另一个人
+										if (!candidates[ rule.names[1-index] ]){ //未找到
+											console.log("Error：规则冲突！", rule.names[1-index])
+											alert("Error：规则冲突！")
+											return false;
+										}
+										candidates[ rule.names[1-index] ].status = true;
+										
+									}else{ //非同桌 不能是另一个人
+										delete candidates[ rule.names[1-index] ];
+									}
+								}else{ //左桌 不在规则中
+									if (rule.bool) //有规定同桌 删除候选人
+										rule.names.forEach(name => delete candidates[name]);
+								}
+							}
+							
+							if (right){ //右桌 存在
+								let index = rule.names.indexOf( right.name );
+								if (index != -1){ //右桌 在规则中
+									if (rule.bool){ //定同桌
+										if (!candidates[ rule.names[1-index] ]){ //未找到
+											console.log("Error：规则冲突！", rule.names[1-index])
+											alert("Error：规则冲突！")
+											return false;
+										}
+										
+										candidates[ rule.names[1-index] ].status = true;
+									}else{ //非同桌
+										delete candidates[ rule.names[1-index] ];
+									}
+								}else{ //右桌 不在规则中
+									if (rule.bool) //有规定同桌 删除候选人
+										rule.names.forEach(name => delete candidates[name]);
+								}
+							}
+						}
+						break;
+					}
+					
+					
+					/* 组性别奇偶性 */
+					case "groupSexParity": {
+						let male = female = 0; //性别人数
+						let inGroup = false; //本组是否在规则内
+						let emptyNum = 0; //剩余空位
+						let to = 0; //start的别名
+						for (const [index, group] of Object.entries(this.groups)){
+							to += group[0];
+							if (rule.group.indexOf(+index) == -1) continue; //非规则内
+							//规则内组
+							if (to-group[0] == start && to-1 == end)
+								inGroup = true; //本组 需要考虑
+							for (let i=0; i<group[0]; i++)
+								for (let j=0; j<group[1]; j++)
+									if (!this.data[to-group[0] + i][j].name){
+										emptyNum++;
+									}else{
+										switch (this.data[to-group[0] + i][j].sex){
+											case "male":
+												male++;
+												break;
+											case "female":
+												female++;
+												break;
+										}
+									}
+						}
+						if (!inGroup) break; //无需考虑
+						if (emptyNum > 1) break; //非决定座位 无需考虑
+						
+						console.log("rule: groupSexParity", rule.group, {male, female})
+						
+						switch (rule.parity){
+							case "odd": //奇
+								switch (rule.sex){
+									case "male": //男性 需奇数
+										if (male % 2 == 0){ //现偶数 需增男性
+											deleteNotSex("male");
+										}else{ //现奇数 不增男性
+											deleteSex("male");
+										}
+										break;
+									case "female": //女性需奇数
+										if (female % 2 == 0){ //现偶数 需增女性
+											deleteNotSex("female");
+										}else{ //现奇数 不增女性
+											deleteSex("female");
+										}
+										break;
+								}
+								break;
+								
+							case "even": //偶数
+								switch (rule.sex){
+									case "male": //男性需偶数
+										if (male % 2 == 0){ //现偶数 不增男性
+											deleteSex("male");
+										}else{ //现奇数 需增男性
+											deleteNotSex("male");
+										}
+										break;
+									case "female": //女性需偶数
+										if (female % 2 == 0){ //现偶数 不增女性
+											deleteSex("female");
+										}else{ //现奇数 需增女性
+											deleteNotSex("female");
+										}
+										break;
+								}
+								break;
+						}
+						
+						break;
+					}
+				}
+			
+			
+			//选取
+			let trueNum = 0, trueName = null;
+			for (const [name, value] of Object.entries(candidates))
+				if (value.status){
+					trueNum++;
+					trueName = name;
+				}
+			
+			if (trueName > 1){ //多人必须 矛盾
+				console.log("Error: 矛盾", candidates, trueNum, trueName)
+				alert("Error: 矛盾！");
+				return false;
+				
+			}else if (trueNum == 1){ //一人必须 选定
+				this.data[pos[0]][pos[1]].name = trueName;
+				this.data[pos[0]][pos[1]].sex = candidates[trueName].sex;
+				
+				//删除
+				const arr = this.names[candidates[trueName].sex]
+				arr.splice(arr.indexOf(name), 1);
+				return true;
+			}else{
+				const length = Object.keys(candidates).length;
+				if (length == 0){ //无候选人 矛盾
+					console.log("Error：无候选人", candidates, trueNum, trueName)
+					alert("Error: 无候选人！");
+					return false;
+				}else{ //随机选择
+					const name = Object.keys(candidates)[ ~~(length*Math.random()) ];
+					this.data[pos[0]][pos[1]].name = name;
+					this.data[pos[0]][pos[1]].sex = candidates[name].sex;
+					
+					//删除
+					const arr = this.names[candidates[name].sex]
+					arr.splice(arr.indexOf(name), 1);
+					return true;
+				}
+			}
+		}
+	},
+	
+	mounted(){
+		console.log(this.names.male, this.names.female)
+		this.initSize();
+		this.draw();
+		const id = setInterval(()=>{
+			const bool = this.calc();
+			console.log( "PICK:", this.data[this.pos[0]][this.pos[1]] )
+			this.draw();
+			if (!bool)
+				clearInterval(id);
+		}, 100);
+	}
+}).mount("app");
+</script>
+	
+</body>
+</html>
